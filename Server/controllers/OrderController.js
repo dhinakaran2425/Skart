@@ -107,47 +107,43 @@ amount += Math.floor(amount * 0.02); // add 2% fee or tax
 }
 
 
-export const stripeWebhook = async (request,response)=>{
-    const stripeInstance=new stripe(process.env.STRIPE_SECRET_KEY)
-    const sig =request.headers["stripe-signature"]
+export const stripeWebhook = async (req, res) => {
+    const stripeInstance = new stripe(process.env.STRIPE_SECRET_KEY);
+    const sig = req.headers["stripe-signature"];
+  
     let event;
+  
     try {
-        event= stripeInstance.webhooks.constructEvent(
-            request.body,
-            sig,
-            process.env.STRIPE_WEBHOOK_SECRET
-        )
-    } catch (error) {
-        response.status(400).send(`Webhook Error : ${error.message}`) 
+      event = stripeInstance.webhooks.constructEvent(
+        req.body,
+        sig,
+        process.env.STRIPE_WEBHOOK_SECRET
+      );
+    } catch (err) {
+      console.error("❌ Stripe webhook signature failed:", err.message);
+      return res.status(400).send(`Webhook Error: ${err.message}`);
     }
-    switch(event){
-        case "payment_intent.succeeded":{
-            const paymentIntent=event.data.object;
-            const paymentIntentId = paymentIntent.id;
-            const session=await stripeInstance.checkout.sessions.list({
-                payment_intent:paymentIntentId
-            })
-            const{orderId, userId} = session.data[0].metadata;
-            await Order.findByIdandUpdate(orderId,{isPaid:true})
-            await User.findByIdandUpdate(userId,{cartItems:{}})
-            break;
-        }
-        case "payment_intent.payment_failed":{
-            const paymentIntent=event.data.object;
-            const paymentIntentId = paymentIntent.id;
-            const session=await stripeInstance.checkout.sessions.list({
-                payment_intent:paymentIntentId
-            })
-            const{orderId} = session.data[0].metadata;
-            await Order.findByIdandDelete(orderId)
-            break;
+  
+    if (event.type === 'checkout.session.completed') {
+      console.log("🔥 Stripe webhook triggered");
+  
+      const session = event.data.object;
+      const { orderId, userId } = session.metadata;
+  
+      try {
+        await Order.findByIdAndUpdate(orderId, { isPaid: true });
+        await User.findByIdAndUpdate(userId, { cartItems: {} });
+        console.log("✅ Updated order:", orderId);
+      } catch (err) {
+        console.error("❌ Failed to update order/user:", err.message);
+      }
     }
-    default:
-        console.log(`Unhandled event type ${event.type}`)
-        break;
-}
-response.json({received:true})
-}
+  
+    res.status(200).json({ received: true });
+  };
+  
+  
+
 
 
 export const getUserOrders = async (req, res) => {
@@ -184,7 +180,7 @@ export const getUserOrders = async (req, res) => {
 export const getAllOrders = async (req, res) => {
     try {
         const orders = await Order.find({
-            $or: [{paymentType: "COD"},{paymentType:"Online"}]
+            $or: [{paymentType: "COD"},{isPaid:true}]
         }).populate("items.product address").sort({createdAt: -1})
         res.json({success: true, orders})
     }
