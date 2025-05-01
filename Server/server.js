@@ -18,7 +18,7 @@ import { stripeWebhook } from './controllers/OrderController.js';
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const allowedOrigins = ["https://skart-jet.vercel.app"];
+const allowedOrigins = ["http://localhost:5173","https://skart-jet.vercel.app"];
 
 app.post('/stripe', express.raw({type:application/json}),stripeWebhook)
 await connectDB();
