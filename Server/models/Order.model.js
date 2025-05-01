@@ -39,7 +39,8 @@ const orderSchema = new mongoose.Schema({
     },
     isPaid: {
         type: Boolean,
-        required: true
+        required: true,
+        default: false,
     },
 }, { timestamps: true });
 
