@@ -9,7 +9,7 @@ export default defineConfig({
   ],
   server: {
     proxy: {
-      '/api': 'https://skart-backend.vercel.app' // Your backend port
+      '/api': 'http://localhost:3000' // Your backend port
     }
   }
 })
